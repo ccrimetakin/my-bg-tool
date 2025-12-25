@@ -1,0 +1,60 @@
+import streamlit as st
+from rembg import remove
+from PIL import Image
+import io
+
+# Page setup
+st.set_page_config(page_title="AI Photo Tool", layout="centered")
+st.title("🖼️ Smart Background Changer")
+st.write("Photo upload karein aur background color badlein!")
+
+# Sidebar mein color option
+st.sidebar.header("Settings")
+bg_color = st.sidebar.color_picker("Background Color Chuniye", "#0000FF") # Default Blue
+
+# Hex color ko RGB mein badalne ke liye function
+def hex_to_rgb(hex_val):
+    hex_val = hex_val.lstrip('#')
+    return tuple(int(hex_val[i:i+2], 16) for i in (0, 2, 4))
+
+# File Uploader
+uploaded_file = st.file_uploader("Apni Photo Select Karein", type=["jpg", "png", "jpeg"])
+
+if uploaded_file is not None:
+    # Original photo dikhana
+    img = Image.open(uploaded_file)
+    st.image(img, caption="Original Photo", use_container_width=True)
+    
+    if st.button("Process Shuru Karein"):
+        with st.spinner('Rukiye, AI kaam kar raha hai...'):
+            try:
+                # 1. Background hatana
+                input_data = uploaded_file.getvalue()
+                no_bg_img = remove(input_data)
+                
+                # 2. Subject (Insaan/Cheez) ko open karna
+                subject = Image.open(io.BytesIO(no_bg_img)).convert("RGBA")
+                
+                # 3. Naya colored background tayyar karna
+                rgb_color = hex_to_rgb(bg_color)
+                new_background = Image.new("RGBA", subject.size, rgb_color + (255,))
+                
+                # 4. Dono ko ek sath jorna
+                final_output = Image.alpha_composite(new_background, subject).convert("RGB")
+                
+                # 5. Result dikhana
+                st.success("Bilkul Tayyar Hai!")
+                st.image(final_output, caption="Naya Result", use_container_width=True)
+                
+                # 6. Download Button
+                buffer = io.BytesIO()
+                final_output.save(buffer, format="JPEG")
+                st.download_button(
+                    label="Photo Download Karein",
+                    data=buffer.getvalue(),
+                    file_name="bg_changed_photo.jpg",
+                    mime="image/jpeg"
+                )
+            except Exception as e:
+                st.error(f"Ek error aaya: {e}")
+
